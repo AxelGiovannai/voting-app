@@ -8,6 +8,7 @@ let express = require("express"),
   app = express(),
   server = require("http").Server(app),
   io = require("socket.io")(server)
+  fs = require('fs');
 
 io.set("transports", ["polling"])
 
@@ -22,9 +23,12 @@ io.sockets.on("connection", function (socket) {
   })
 })
 
-const pool = new pg.Pool({
-    connectionString: "postgres://postgres:postgres@db/postgres",
-})
+const password = fs.readFileSync('/run/secrets/db_password', 'utf8').trim();
+const user = process.env.POSTGRES_USER || 'postgres';
+const db = process.env.POSTGRES_DB || 'postgres';
+var pool = new pg.Pool({
+  connectionString: 'postgres://' + user + ':' + password + '@db/' + db
+});
 
 async.retry(
   {times: 1000, interval: 1000},

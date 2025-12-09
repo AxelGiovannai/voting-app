@@ -7,6 +7,7 @@ using System.Threading;
 using Newtonsoft.Json;
 using Npgsql;
 using StackExchange.Redis;
+using System.IO;
 
 namespace Worker
 {
@@ -16,7 +17,13 @@ namespace Worker
         {
             try
             {
-                var pgsql = OpenDbConnection("Server=db;Username=postgres;Password=postgres;");
+
+                string dbPassword = File.ReadAllText("/run/secrets/db_password").Trim();
+                string dbUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "postgres";
+                string dbName = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "postgres";
+                string pgConnString = $"Server=db;Username={dbUser};Password={dbPassword};Database={dbName};";
+
+                var pgsql = OpenDbConnection(pgConnString);
                 var redisConn = OpenRedisConnection("redis");
                 var redis = redisConn.GetDatabase();
 
@@ -44,7 +51,7 @@ namespace Worker
                         if (!pgsql.State.Equals(System.Data.ConnectionState.Open))
                         {
                             Console.WriteLine("Reconnecting DB");
-                            pgsql = OpenDbConnection("Server=db;Username=postgres;Password=postgres;");
+                            pgsql = OpenDbConnection(pgConnString);
                         }
                         else
                         {
