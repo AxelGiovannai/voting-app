@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   vote:
     read_only: true
@@ -29,6 +27,8 @@ services:
     networks:
       - frontend
       - backend
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     depends_on:
       - db
 
@@ -36,6 +36,8 @@ services:
     build: ./worker
     networks:
       - backend
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     depends_on:
       redis:
         condition: service_started

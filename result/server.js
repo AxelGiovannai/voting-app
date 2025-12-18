@@ -23,7 +23,12 @@ io.sockets.on("connection", function (socket) {
   })
 })
 
-const password = fs.readFileSync('/run/secrets/db_password', 'utf8').trim();
+let password;
+if (fs.existsSync('/run/secrets/db_password')) {
+  password = fs.readFileSync('/run/secrets/db_password', 'utf8').trim();
+} else {
+  password = process.env.POSTGRES_PASSWORD || 'postgres';
+}
 const user = process.env.POSTGRES_USER || 'postgres';
 const db = process.env.POSTGRES_DB || 'postgres';
 var pool = new pg.Pool({

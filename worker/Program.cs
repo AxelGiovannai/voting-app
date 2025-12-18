@@ -18,7 +18,15 @@ namespace Worker
             try
             {
 
-                string dbPassword = File.ReadAllText("/run/secrets/db_password").Trim();
+                string dbPassword;
+                if (File.Exists("/run/secrets/db_password"))
+                {
+                    dbPassword = File.ReadAllText("/run/secrets/db_password").Trim();
+                }
+                else
+                {
+                    dbPassword = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "postgres";
+                }
                 string dbUser = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "postgres";
                 string dbName = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "postgres";
                 string pgConnString = $"Server=db;Username={dbUser};Password={dbPassword};Database={dbName};";

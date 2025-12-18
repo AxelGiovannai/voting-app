@@ -108,7 +108,7 @@ Secrets : Injection sécurisée du fichier /run/secrets/db_password dans les con
 Commande de déploiement :
 
 ```Bash
-export $(grep -v '^#' .env | xargs) && docker stack deploy -c stack.yml voting-stack
+export $(grep -v '^#' .env | xargs) && docker stack deploy -c stack.yaml voting-stack
 ```
 
 
