@@ -121,3 +121,4 @@ Visualizer : http://localhost:8080 (Vue graphique du cluster)
 ```Bash
 docker stack services voting-stack
 ```
+
