@@ -17,7 +17,7 @@ namespace Worker
         {
             try
             {
-
+                // bug dans le le if else surement
                 string dbPassword;
                 if (File.Exists("/run/secrets/db_password"))
                 {
