@@ -1,124 +1,169 @@
-# Voting App
+# Documentation Technique 3DOKR
 
-Ce projet est une application distribuée de vote conteneurisée et orchestrée via Docker Swarm.
+## Informations importantes
 
-## 1. Architecture
+Le fichier `.env` a volontairement été fourni pour faciliter la configuration.
 
-L'application repose sur une architecture microservices composée de 5 conteneurs interconnectés.
 
-### Les Composants
-* **Vote** (Python/Flask) : Interface Front-end exposée au public pour voter (Option A vs Option B).
-* **Redis** (Queue) : Base de données clé-valeur en mémoire, servant de tampon pour les votes entrants.
-* **Worker** (.NET Core) : Service Back-end qui consomme les votes depuis Redis et les persiste dans PostgreSQL.
-* **DB** (PostgreSQL) : Base de données relationnelle pour le stockage durable des votes.
-* **Result** (Node.js) : Interface Front-end affichant les résultats en temps réel via WebSockets.
+## 1. Présentation du Projet
 
-### Réseau et Sécurité
-L'architecture implémente une segmentation réseau stricte :
-* **Réseau `frontend`** : Public. Seuls les services `vote` et `result` y sont connectés.
-* **Réseau `backend`** : Privé. Contient `redis`, `db` et `worker`. Inaccessible depuis l'extérieur.
+Ce projet consiste en la modernisation d'une application distribuée existante initialement lancée par scripts. L'objectif a été de conteneuriser l'ensemble des modules et de déployer l'architecture sur un cluster **Docker Swarm** et/ou via un **Docker Compose**.
 
-Les données sensibles (mots de passe BDD) sont gérées exclusivement via **Docker Secrets** (chiffrés au repos et en transit), et jamais via des variables d'environnement en clair.
+L'application se compose de 5 services :
 
----
+- **Vote** : Interface utilisateur pour voter.
+- **Result** : Interface utilisateur affichant les résultats en temps réel.
+- **Worker** : Service de fond traitant les votes.
+- **Redis** : File d'attente en mémoire pour les votes entrants.
+- **PostgreSQL** : Base de données persistante pour le stockage définitif.
 
-## 2. Dockerfile
 
-Chaque service dispose d'un `Dockerfile`.
-### Optimisations mises en place :
-* **Utilisateurs non-root** : Création et utilisation d'utilisateurs dédiés (`appuser`, `node`) pour éviter que les conteneurs tournent en `root`.
-* **Images légères** : Utilisation de versions `slim` (Debian) ou `alpine` pour réduire la surface d'attaque.
-* **Multi-stage builds** : Pour le service `.NET`, la compilation se fait dans une image lourde (SDK), mais l'exécution se fait dans une image runtime ultra-légère.
+## 2. Architecture Technique
 
-### Exemple : Le Worker (.NET)
-```dockerfile
-# Étape 1 : Build
-FROM [mcr.microsoft.com/dotnet/sdk:7.0](https://mcr.microsoft.com/dotnet/sdk:7.0) AS build
-WORKDIR /source
-COPY *.csproj .
-RUN dotnet restore
-COPY . .
-RUN dotnet publish -c Release -o /app/publish --no-restore
+### 2.1 Conteneurisation
 
-# Étape 2 : Runtime
-FROM [mcr.microsoft.com/dotnet/runtime:7.0](https://mcr.microsoft.com/dotnet/runtime:7.0)
-WORKDIR /app
-RUN useradd -m appuser          # Création user sécurisé
-COPY --from=build /app/publish .
-RUN chown -R appuser /app
-USER appuser                    # Exécution non-root
-CMD ["dotnet", "Worker.dll"]
-3. Compose
-Pour le développement local et la construction des images, nous utilisons docker-compose. Ce fichier gère la configuration dynamique via un fichier .env.
+Chaque service applicatif dispose de son propre `Dockerfile`. Nous avons privilégié les images légères et respecté les bonnes pratiques (non-root users quand possible, nettoyage des caches).
+
+### 2.2 Orchestration (Docker Swarm)
+
+L'application utilise deux réseaux overlay distincts pour la sécurité :
+
+1. **`frontend`** : Réseau public exposant les interfaces Web (`vote`, `result`).
+2. **`backend`** : Réseau privé interne. Seuls les services backend et la base de données y communiquent. La base de données n'est jamais exposée directement.
+
+
+## 3. Infrastructure du Cluster (Mise en place)
+
+Le cluster a été déployé sur un environnement virtualisé **VMware Workstation Pro 25**.
+
+### 3.1 Configuration des 3 Machines Virtuelles
+
+- **OS :** Debian 13.
+- **Réseau :** Mode NAT (Les VMs partagent une plage IP privée, ex: `192.168.100.x`).
+- **Installation :** Installation classique de Debian avec les paramètres par défaut.
+- **Post-Installation :** Installation de Docker, ajout de l'utilisateur au groupe docker (`usermod -aG docker $USER`) puis clonage de la machine virtuelle pour en faire trois.
+
+### 3.2 Préparation des VMs (Procédure de clonage)
+
+Afin d'éviter les conflits d'identité Docker lors du clonage des VMs sous VMware, la procédure suivante a été appliquée sur chaque nœud :
+
+1. Changement du `hostname` (manager, worker1, worker2) via `sudo hostnamectl set-hostname <nouveau-hostname>`
+2. **Nettoyage de l'ID Docker** (Crucial pour le Swarm) :
+```bash
+sudo rm /etc/docker/key.json
+sudo systemctl restart docker
 ```
 
-Configuration .env
-Un fichier .env à la racine permet de piloter l'infrastructure sans toucher au code :
+### 3.3 Initialisation du Swarm
+
+**Sur le nœud Manager :**
+
+```bash
+docker swarm init --advertise-addr <IP_MANAGER>
+```
+*(Cette commande va renvoyer une commande à copier impérativement (voir ci-dessous)).*
+
+**Sur les nœuds Workers :**
+Utilisation du token fourni par le manager :
+
+```bash
+docker swarm join --token <TOKEN> <IP_MANAGER>:2377
+```
+
+**Validation :**
+
+```bash
+docker node ls
+```
+
+*(Cette commande confirme que les 3 nœuds sont en statut `Ready` et `Active`).*
 
 
-Extrait de code
+## 4. Déploiement de l'Application
+
+Le déploiement s'effectue via le fichier `stack.yaml`, mais l'application au complet (.zip rendu) est nécessaire sur la machine Manager pour fonctionner.
+
+### 4.1 Gestion des Secrets (Sécurité)
+
+Pour ne pas exposer le mot de passe de la base de données en clair dans le code, nous utilisons **Docker Secrets**.
+Avant le déploiement, le secret est créé manuellement sur le Manager :
+
+```bash
+echo "postgres" | docker secret create db_password -
 
 ```
+
+### 4.2 Configuration des Variables d'Environnement
+
+Un fichier `.env` est créé sur le Manager pour définir les paramètres non sensibles :
+
+```bash
+# Fichier .env
 VOTE_PORT=5000
 RESULT_PORT=5001
+# Doit correspondre au contenu du secret pour que les apps s'authentifient
 POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
 POSTGRES_DB=postgres
 ```
 
-Fonctionnalités Clés
-- Healthchecks : Le service db possède un test de santé (pg_isready). Les services dépendants (worker, result) attendent que la base soit healthy avant de démarrer.
+### 4.3 Lancement de la Stack
 
-- Volumes : Persistance des données PostgreSQL dans un volume Docker géré.
+```bash
+# Chargement des variables
+source .env
 
-Commande pour construire les images :
-
-```Bash
-docker compose build
+# Déploiement
+docker stack deploy -c stack.yaml vote-stack
 ```
 
----
-## 4. Swarm
-Le déploiement en production est géré par un cluster Docker Swarm. C'est ici que l'orchestration, la haute disponibilité et la gestion des secrets prennent tout leur sens.
+## 5. Vérification du Fonctionnement
 
-Initialisation
-Si ce n'est pas fait :
+### État du Cluster
 
-```Bash
-docker swarm init --advertise-addr <VOTRE_IP>
+Commande : `docker service ls`
+
+### Accès aux Interfaces
+
+L'application est accessible via le Routing Mesh de Swarm sur l'IP de n'importe quel nœud :
+
+- **Vote :** `http://<IP_VM>:5000`
+- **Result :** `http://<IP_VM>:5001`
+- **Visualizer :** `http://<IP_VM>:8080`
+
+Voici la section à ajouter à ta documentation. Le meilleur endroit pour l'insérer est **juste après la partie "2. Architecture Technique"** et **avant "3. Infrastructure du Cluster"**.
+
+Cela respecte la logique du projet : d'abord on développe/test en local (Compose), ensuite on prépare l'infra (VMs), et enfin on déploie en prod (Swarm).
+
+## 6. Développement et Build (Docker Compose)
+
+Avant le déploiement sur le cluster, l'application est validée dans un environnement local à l'aide de **Docker Compose**. Cette étape permet également de **construire les images Docker** à partir des sources (dossiers `vote/`, `worker/`, `result/`).
+
+### 3.1 Configuration
+
+Un fichier `.env` identique à celui de production est requis à la racine du projet pour définir les ports et identifiants.
+
+### 3.2 Lancement et Build
+
+La commande suivante lancée à la racine du projet permet de compiler les images et de lancer l'application en arrière-plan :
+
+```bash
+docker compose up --build -d
+
 ```
 
-Gestion des Secrets
-Création du mot de passe de la base de données (ne jamais le mettre dans le code) :
+* L'option `--build` force la reconstruction des images à partir du code source local.
+* L'option `-d` lance les conteneurs en arrière-plan.
 
-```Bash
-printf "votre_mot_de_passe_secret" | docker secret create db_password -
+L'application est alors accessible localement sur `http://localhost:5000` (Vote) et `http://localhost:5001` (Result).
+
+### 3.3 Arrêt de l'environnement
+
+Pour arrêter l'application et supprimer les conteneurs ainsi que les réseaux temporaires :
+
+```bash
+docker compose down
+
 ```
 
-### Déploiement de la Stack (stack.yml)
-Le fichier stack.yml définit les règles de production :
-
-Replicas : 2 instances pour l'app de vote (répartition de charge).
-
-Update Config : Mise à jour sans interruption de service (Rolling Update).
-
-Placement Constraints : La DB est épinglée au nœud Manager pour garantir l'accès à son volume disque.
-
-Secrets : Injection sécurisée du fichier /run/secrets/db_password dans les conteneurs.
-
-Commande de déploiement :
-
-```Bash
-export $(grep -v '^#' .env | xargs) && docker stack deploy -c stack.yaml voting-stack
-```
-
-
-Vote : http://localhost:5000
-
-Résultats : http://localhost:5001
-
-Visualizer : http://localhost:8080 (Vue graphique du cluster)
-
-```Bash
-docker stack services voting-stack
-```
-
+*(Note : Les volumes de données sont conservés sauf si l'option `-v` est ajoutée).*
