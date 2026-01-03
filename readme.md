@@ -7,7 +7,7 @@ Le fichier `.env` a volontairement été fourni pour faciliter la configuration.
 
 ## 1. Présentation du Projet
 
-Ce projet consiste en la modernisation d'une application distribuée existante initialement lancée par scripts. L'objectif a été de conteneuriser l'ensemble des modules et de déployer l'architecture sur un cluster **Docker Swarm** et/ou via un **Docker Compose**.
+Ce Projet vise à moderniser l'application donnée en passant d'un lancement par scripts à une architecture conteneurisée sous **Docker Swarm** ou **Docker Compose**.
 
 L'application se compose de 5 services :
 
@@ -22,7 +22,7 @@ L'application se compose de 5 services :
 
 ### 2.1 Conteneurisation
 
-Chaque service applicatif dispose de son propre `Dockerfile`. Nous avons privilégié les images légères et respecté les bonnes pratiques (non-root users quand possible, nettoyage des caches).
+Chaque service applicatif possède son `Dockerfile`. Nous avons privilégié les images légères et respecté les bonnes pratiques (non-root users quand possible, nettoyage des caches).
 
 ### 2.2 Orchestration (Docker Swarm)
 
@@ -34,7 +34,7 @@ L'application utilise deux réseaux overlay distincts pour la sécurité :
 
 ## 3. Infrastructure du Cluster (Mise en place)
 
-Le cluster a été déployé sur un environnement virtualisé **VMware Workstation Pro 25**.
+Le cluster a été déployé sur un environnement virtualisé **VMware Workstation Pro 25H2**.
 
 ### 3.1 Configuration des 3 Machines Virtuelles
 
@@ -60,10 +60,10 @@ sudo systemctl restart docker
 ```bash
 docker swarm init --advertise-addr <IP_MANAGER>
 ```
-*(Cette commande va renvoyer une commande à copier impérativement (voir ci-dessous)).*
+Note : Conserver la commande `join` générée en sortie.
 
 **Sur les nœuds Workers :**
-Utilisation du token fourni par le manager :
+Utilisation de la commande fournie par le manager :
 
 ```bash
 docker swarm join --token <TOKEN> <IP_MANAGER>:2377
@@ -74,8 +74,6 @@ docker swarm join --token <TOKEN> <IP_MANAGER>:2377
 ```bash
 docker node ls
 ```
-
-*(Cette commande confirme que les 3 nœuds sont en statut `Ready` et `Active`).*
 
 
 ## 4. Déploiement de l'Application
@@ -133,11 +131,11 @@ L'application est accessible via le Routing Mesh de Swarm sur l'IP de n'importe 
 
 Avant le déploiement sur le cluster, l'application est validée dans un environnement local à l'aide de **Docker Compose**. Cette étape permet également de **construire les images Docker** à partir des sources (dossiers `vote/`, `worker/`, `result/`).
 
-### 3.1 Configuration
+### 6.1 Configuration
 
 Un fichier `.env` identique à celui de production est requis à la racine du projet pour définir les ports et identifiants.
 
-### 3.2 Lancement et Build
+### 6.2 Lancement et Build
 
 La commande suivante lancée à la racine du projet permet de compiler les images et de lancer l'application en arrière-plan :
 
@@ -151,7 +149,7 @@ docker compose up --build -d
 
 L'application est alors accessible localement sur `http://localhost:5000` (Vote) et `http://localhost:5001` (Result).
 
-### 3.3 Arrêt de l'environnement
+### 6.3 Arrêt de l'environnement
 
 Pour arrêter l'application et supprimer les conteneurs ainsi que les réseaux temporaires :
 
