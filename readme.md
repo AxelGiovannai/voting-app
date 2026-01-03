@@ -129,10 +129,6 @@ L'application est accessible via le Routing Mesh de Swarm sur l'IP de n'importe 
 - **Result :** `http://<IP_VM>:5001`
 - **Visualizer :** `http://<IP_VM>:8080`
 
-Voici la section à ajouter à ta documentation. Le meilleur endroit pour l'insérer est **juste après la partie "2. Architecture Technique"** et **avant "3. Infrastructure du Cluster"**.
-
-Cela respecte la logique du projet : d'abord on développe/test en local (Compose), ensuite on prépare l'infra (VMs), et enfin on déploie en prod (Swarm).
-
 ## 6. Développement et Build (Docker Compose)
 
 Avant le déploiement sur le cluster, l'application est validée dans un environnement local à l'aide de **Docker Compose**. Cette étape permet également de **construire les images Docker** à partir des sources (dossiers `vote/`, `worker/`, `result/`).
