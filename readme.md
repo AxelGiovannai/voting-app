@@ -41,8 +41,7 @@ Le cluster a été déployé sur un environnement virtualisé **VMware Workstati
 - **OS :** Debian 13.
 - **Réseau :** Mode NAT (Les VMs partagent une plage IP privée, ex: `192.168.100.x`).
 - **Installation :** Installation classique de Debian avec les paramètres par défaut.
-- **Post-Installation :** Installation de Docker, ajout de l'utilisateur au groupe docker (`usermod -aG docker $USER`) puis clonage de la machine virtuelle pour en faire trois.
-
+- **Post-Installation :** Installation de Docker, ajout de l'utilisateur au groupe docker (`usermod -aG docker $USER`) puis clonage de la machine virtuelle pour en faire trois. Pensez à bien sélectionner "Créer un clone complet" lors du clonage des machines virtuelles sur VMWare.
 ### 3.2 Préparation des VMs (Procédure de clonage)
 
 Afin d'éviter les conflits d'identité Docker lors du clonage des VMs sous VMware, la procédure suivante a été appliquée sur chaque nœud :
@@ -90,7 +89,6 @@ Avant le déploiement, le secret est créé manuellement sur le Manager :
 
 ```bash
 echo "postgres" | docker secret create db_password -
-
 ```
 
 ### 4.2 Configuration des Variables d'Environnement
@@ -110,8 +108,8 @@ POSTGRES_DB=postgres
 ### 4.3 Lancement de la Stack
 
 ```bash
-# Chargement des variables
-source .env
+# Export des variables
+export $(cat .env | xargs)
 
 # Déploiement
 docker stack deploy -c stack.yaml vote-stack
